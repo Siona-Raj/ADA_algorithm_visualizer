@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Topological Sort Visualizer</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #2a2a2a;
+      color: #f5f5f5;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    h1 {
+      color: #ffcc33;
+    }
+
+    input[type="text"] {
+      padding: 0.5rem;
+      border-radius: 5px;
+      border: none;
+      width: 300px;
+      font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      padding: 0.5rem 1rem;
+      margin: 0.5rem;
+      font-size: 1rem;
+      border: 1px solid #bfa326;
+      border-radius: 5px;
+      background: linear-gradient(145deg, #ffe066, #ffcc33);
+      color: #2a2a2a;
+      cursor: pointer;
+      font-weight: bold;
+      box-shadow: inset 0 0 0.5em rgba(255, 255, 255, 0.1), 0 0 0.3em #bfa326;
+      transition: all 0.2s ease-in-out;
+    }
+
+    button:hover {
+      background: linear-gradient(145deg, #ffdb4d, #e6b800);
+      box-shadow: inset 0 0 0.5em rgba(255, 255, 255, 0.15), 0 0 0.4em #bfa326;
+    }
+
+    svg {
+      margin-top: 2rem;
+      background-color: #1e1e1e;
+      border-radius: 10px;
+    }
+
+    .error {
+      color: #ff4d4d;
+      margin-top: 0.5rem;
+    }
+
+    #sortedPath {
+      margin-top: 1rem;
+      color: #00cc66;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Topological Sort Visualizer</h1>
+  <input type="text" id="inputGraph" placeholder="Enter edges like A->B,B->C" />
+  <div id="errorMessage" class="error"></div>
+  <br/>
+  <button onclick="buildGraphStepByStep()">Build Graph</button>
+  <button onclick="startTopoSort()">Start Sort</button>
+  <button onclick="nextTopoStep()">Next Step</button>
+  <button onclick="autoPlayTopo()">Auto Play</button>
+  <button onclick="resetTopoSort()">Reset</button>
+  <svg id="graphSVG" width="100%" height="600"></svg>
+  <div id="sortedPath"></div>
+
+  <script>
+    let graph = {};
+    let sortedOrder = [];
+    let topoSteps = [];
+    let topoStepIndex = 0;
+    let autoPlayTopoInterval;
+    let positions = {};
+    let buildSteps = [], buildIndex = 0, buildInterval;
+    let graphReady = false;
+
+    function buildGraphStepByStep() {
+      const input = document.getElementById("inputGraph").value;
+      const errorDiv = document.getElementById("errorMessage");
+      document.getElementById("sortedPath").textContent = "";
+      errorDiv.textContent = "";
+      graph = {};
+      sortedOrder = [];
+      topoSteps = [];
+      topoStepIndex = 0;
+      buildSteps = [];
+      buildIndex = 0;
+      graphReady = false;
+      clearInterval(autoPlayTopoInterval);
+      clearInterval(buildInterval);
+
+      try {
+        const edges = input.split(',');
+        edges.forEach(edge => {
+          const [from, to] = edge.split('->').map(n => n.trim());
+          if (!from || !to) throw new Error();
+          buildSteps.push([from, to]);
+        });
+        buildInterval = setInterval(buildStep, 700);
+      } catch {
+        errorDiv.textContent = "Invalid input. Please use format A->B,B->C";
+      }
+    }
+
+    function buildStep() {
+      if (buildIndex >= buildSteps.length) {
+        clearInterval(buildInterval);
+        generate2DPositions();
+        renderGraph([]);
+        graphReady = true;
+        return;
+      }
+      const [from, to] = buildSteps[buildIndex];
+      if (!graph[from]) graph[from] = [];
+      if (!graph[to]) graph[to] = [];
+      graph[from].push(to);
+      buildIndex++;
+      generate2DPositions();
+      renderGraph([]);
+    }
+
+    function startTopoSort() {
+      const errorDiv = document.getElementById("errorMessage");
+      errorDiv.textContent = "";
+      if (!graphReady) {
+        errorDiv.textContent = "Please build the graph first.";
+        return;
+      }
+
+      sortedOrder = [];
+      topoSteps = [];
+      topoStepIndex = 0;
+      clearInterval(autoPlayTopoInterval);
+
+      const inDegree = {};
+      const tempGraph = JSON.parse(JSON.stringify(graph));
+      Object.keys(tempGraph).forEach(node => inDegree[node] = 0);
+      Object.values(tempGraph).forEach(edges => edges.forEach(to => inDegree[to]++));
+      const queue = Object.keys(inDegree).filter(node => inDegree[node] === 0);
+      const visited = new Set();
+
+      while (queue.length) {
+        const node = queue.shift();
+        if (visited.has(node)) continue;
+        visited.add(node);
+        sortedOrder.push(node);
+        topoSteps.push([...sortedOrder]);
+        tempGraph[node].forEach(neighbor => {
+          inDegree[neighbor]--;
+          if (inDegree[neighbor] === 0) queue.push(neighbor);
+        });
+      }
+
+      if (sortedOrder.length !== Object.keys(graph).length) {
+        errorDiv.textContent = "Cycle detected or disconnected graph. Topological sort not possible.";
+        return;
+      }
+
+      document.getElementById("sortedPath").textContent = `Sorted Path: ${sortedOrder.join(' → ')}`;
+      topoStepIndex = 0;
+      nextTopoStep();
+    }
+
+    function nextTopoStep() {
+      if (!graphReady || topoStepIndex >= topoSteps.length) return;
+      renderGraph(topoSteps[topoStepIndex]);
+      topoStepIndex++;
+    }
+
+    function autoPlayTopo() {
+      if (!graphReady) return;
+      clearInterval(autoPlayTopoInterval);
+      autoPlayTopoInterval = setInterval(() => {
+        if (topoStepIndex >= topoSteps.length) {
+          clearInterval(autoPlayTopoInterval);
+        } else {
+          nextTopoStep();
+        }
+      }, 1000);
+    }
+
+    function resetTopoSort() {
+      clearInterval(autoPlayTopoInterval);
+      clearInterval(buildInterval);
+      topoStepIndex = 0;
+      graphReady = false;
+      document.getElementById("errorMessage").textContent = "";
+      renderGraph([]);
+      document.getElementById("sortedPath").textContent = "";
+    }
+
+    function generate2DPositions() {
+      const nodes = Object.keys(graph);
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      const spacingX = 150, spacingY = 150;
+
+      const svg = document.getElementById("graphSVG");
+      const svgWidth = svg.clientWidth;
+      const svgHeight = svg.clientHeight;
+
+      const totalWidth = (cols - 1) * spacingX;
+      const rows = Math.ceil(nodes.length / cols);
+      const totalHeight = (rows - 1) * spacingY;
+
+      const offsetX = (svgWidth - totalWidth) / 2;
+      const offsetY = (svgHeight - totalHeight) / 2;
+
+      positions = {};
+      nodes.forEach((node, i) => {
+        const row = Math.floor(i / cols);
+        const col = i % cols;
+        positions[node] = {
+          x: offsetX + col * spacingX,
+          y: offsetY + row * spacingY,
+        };
+      });
+    }
+
+    function renderGraph(highlighted) {
+      const svg = document.getElementById("graphSVG");
+      svg.innerHTML = "";
+
+      const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      defs.innerHTML = `
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="10" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#ccc" />
+        </marker>
+      `;
+      svg.appendChild(defs);
+
+      for (const from in graph) {
+        graph[from].forEach(to => {
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          line.setAttribute("x1", positions[from].x);
+          line.setAttribute("y1", positions[from].y);
+          line.setAttribute("x2", positions[to].x);
+          line.setAttribute("y2", positions[to].y);
+          line.setAttribute("stroke", "#ccc");
+          line.setAttribute("stroke-width", "2");
+          line.setAttribute("marker-end", "url(#arrow)");
+          svg.appendChild(line);
+        });
+      }
+
+      for (const node in positions) {
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", positions[node].x);
+        circle.setAttribute("cy", positions[node].y);
+        circle.setAttribute("r", 25);
+        circle.setAttribute("fill", highlighted.includes(node) ? "#ffcc33" : "#004aad");
+        svg.appendChild(circle);
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", positions[node].x);
+        text.setAttribute("y", positions[node].y + 5);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("fill", "white");
+        text.setAttribute("font-size", "16");
+        text.setAttribute("font-weight", "bold");
+        text.textContent = node;
+        svg.appendChild(text);
+      }
+    }
+  </script>
+</body>
+</html>

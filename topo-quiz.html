@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Topological Sort Quiz</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap');
+
+    body {
+      margin: 0;
+      font-family: 'Quicksand', sans-serif;
+      background-color: #2a2a2a;
+      color: #f5f5f5;
+      text-align: left;
+      padding: 4rem 2rem 2rem;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, #fceabb, #f8b500);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+
+    p {
+      font-size: 1.2rem;
+      max-width: 800px;
+      margin: 1rem 0;
+      line-height: 1.8;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 2rem;
+      background-color: #333;
+      border-radius: 12px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .question-container {
+      margin-top: 2rem;
+    }
+
+    .question {
+      font-size: 1.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .options {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .option {
+      margin: 0.5rem 0;
+      padding: 0.8rem 1.5rem;
+      background-color: #fceabb; /* Yellow color */
+      border: none;
+      color: #222;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+    }
+
+    .option:hover {
+      opacity: 0.9;
+    }
+
+    .option.correct {
+      background-color: #4CAF50 !important;
+      color: #fff !important;
+    }
+
+    .option.wrong {
+      background-color: #e74c3c !important;
+      color: #fff !important;
+    }
+
+    .button-container {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 2rem;
+    }
+
+    .next-btn,
+    .submit-btn {
+      padding: 1rem 2rem;
+      background: linear-gradient(to right, #fceabb, #f8b500);
+      border: none;
+      font-size: 1.2rem;
+      cursor: pointer;
+      border-radius: 8px;
+    }
+
+    .next-btn:hover,
+    .submit-btn:hover {
+      opacity: 0.9;
+    }
+
+    #result {
+      margin-top: 2rem;
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #ffe77a;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Topological Sort Quiz - Kahns Algorithm</h1>
+    <p>Test your understanding of Kahn's algorithm for Topological Sort!</p>
+
+    <div class="question-container" id="question-container">
+      <!-- Questions will be dynamically inserted here -->
+    </div>
+
+    <div class="button-container">
+      <button class="next-btn" id="next-btn">Next Question</button>
+      <button class="submit-btn" id="submit-btn" style="display: none;">Submit</button>
+    </div>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        question: "What is the first step of Kahn's Algorithm?",
+        options: [
+          "Pick a node with no incoming edges.",
+          "Pick a node with no outgoing edges.",
+          "Pick a node with the highest in-degree.",
+          "Pick a node with the lowest in-degree."
+        ],
+        answer: 0
+      },
+      {
+        question: "Which data structure is commonly used in Kahn's Algorithm?",
+        options: [
+          "Queue",
+          "Stack",
+          "Heap",
+          "Linked List"
+        ],
+        answer: 0
+      },
+      {
+        question: "What happens when a node is processed in Kahn's Algorithm?",
+        options: [
+          "It is removed from the graph.",
+          "Its neighbors are processed first.",
+          "It is added to the queue.",
+          "Its incoming edges are removed."
+        ],
+        answer: 3
+      },
+      {
+        question: "When does the topological sort process stop in Kahn's Algorithm?",
+        options: [
+          "When there are no more nodes in the queue.",
+          "When all nodes have been processed.",
+          "When the graph has no outgoing edges.",
+          "When the graph contains a cycle."
+        ],
+        answer: 0
+      },
+      {
+        question: "What is the result of a topological sort?",
+        options: [
+          "A list of nodes in the order of their dependencies.",
+          "A sorted list of all edges.",
+          "A list of nodes with the highest in-degree.",
+          "A graph with no edges."
+        ],
+        answer: 0
+      }
+    ];
+
+    let currentQuestionIndex = 0;
+    let selectedOptions = [];
+    let score = 0;
+    let isAnswered = false;
+
+    function loadQuestion() {
+      isAnswered = false;
+      const question = questions[currentQuestionIndex];
+      const questionContainer = document.getElementById('question-container');
+      questionContainer.innerHTML = '';
+
+      const questionText = document.createElement('div');
+      questionText.classList.add('question');
+      questionText.innerText = question.question;
+      questionContainer.appendChild(questionText);
+
+      const optionsContainer = document.createElement('div');
+      optionsContainer.classList.add('options');
+      question.options.forEach((option, index) => {
+        const optionButton = document.createElement('button');
+        optionButton.classList.add('option');
+        optionButton.innerText = option;
+        optionButton.onclick = () => checkAnswer(optionButton, index === question.answer, index);
+        optionsContainer.appendChild(optionButton);
+      });
+
+      questionContainer.appendChild(optionsContainer);
+    }
+
+    function checkAnswer(button, isCorrect, index) {
+      if (isAnswered) return;
+      isAnswered = true;
+
+      const buttons = document.querySelectorAll('.option');
+      buttons.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === questions[currentQuestionIndex].answer) {
+          btn.classList.add('correct');
+        } else if (i === index) {
+          btn.classList.add('wrong');
+        }
+      });
+
+      selectedOptions[currentQuestionIndex] = index;
+      if (isCorrect) score++;
+    }
+
+    document.getElementById('next-btn').addEventListener('click', nextQuestion);
+    document.getElementById('submit-btn').addEventListener('click', submitQuiz);
+
+    function nextQuestion() {
+      if (selectedOptions[currentQuestionIndex] === undefined) {
+        alert('Please select an answer before proceeding.');
+        return;
+      }
+
+      currentQuestionIndex++;
+
+      if (currentQuestionIndex < questions.length) {
+        loadQuestion();
+      } else {
+        document.getElementById('next-btn').style.display = 'none';
+        document.getElementById('submit-btn').style.display = 'block';
+      }
+    }
+
+    function submitQuiz() {
+      const result = document.getElementById('result');
+      result.innerHTML = `You scored ${score} out of ${questions.length}!`;
+      result.style.display = 'block';
+      document.getElementById('submit-btn').style.display = 'none';
+    }
+
+    loadQuestion();
+  </script>
+</body>
+</html>
